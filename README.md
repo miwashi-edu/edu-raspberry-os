@@ -18,8 +18,8 @@ ssh [user]@localhost -p 2222
 ```bash
 cd ~
 cd ws
-mkdir -p myproject
-cd myproject
+mkdir -p zero-project
+cd zero-project
 mkdir src
 mkdir include
 mkdir tests
@@ -53,7 +53,7 @@ git commit -m "Initial Commit"
 ```bash
 cat > CMakeLists.txt << EOF
 cmake_minimum_required(VERSION 3.16)
-project(myproject LANGUAGES CXX)
+project(zero-project LANGUAGES CXX)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \${CMAKE_SOURCE_DIR}/bin)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -95,20 +95,20 @@ make -C build
 ./bin/hello
 ```
 
-### Reset to commit or delete myproject
+### Reset to commit or delete zero-project
 
 #### Delete project
 ```bash
 cd ~
 cd ws
-rm -rf myproject
+rm -rf zero-project
 ```
 
 #### Reset to commit
 ```bash
 cd ~
 cd ws
-cd myproject
+cd zero-project
 git reset --hard
 git clean -df
 ```
