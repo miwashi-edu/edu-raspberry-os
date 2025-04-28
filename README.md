@@ -1,140 +1,176 @@
 # edu-raspberry-os
 
-> Setup raspberry docker machine  
->  
-> Memorising not priotized, when you don't have more important parts to memorise.  
-> **Restart SSH if stopped** `docker exec -it rpi5-dev bash -c "service ssh restart"`
+> Testing
 
-## Premises
-
-### iotnet exists
+### Login
 
 ```bash
-docker network create --driver bridge --subnet 192.168.2.0/24 --gateway 192.168.2.1 iotnet
-```
-
-### need to remove old conatiner
-
-```bash
-docker stop rpi5-dev
-docker rm rpi5-dev
-```
-
-### Configure git
-
-> This is one time only
-
-```bash
-git config --global init.defaultBranch main
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
-git config --global github.user "your-github-username"
-
-ssh-keygen -t ed25519 -C "your-email@example.com" -f ~/.ssh/id_ed25519 -N "" #Generate SSH key
-cat ~/.ssh/id_ed25519.pub #Print it on screen for copying and adding to github SSH keys.
-
-# Test git login
-ssh -T git@github.com
-
-git config --global --list # Check global config
-#git config --list # Repository config
 ```
 
 ## Instructions
 
-```bash
-docker run -d --name rpi5-dev \
-    --network iotnet \
-    --hostname rpi5-dev \
-    -p 2222:22 \
-    -e TZ=UTC \
-    balenalib/raspberrypi5-debian:bookworm \
-    /bin/bash -c "while true; do sleep 30; done"
-```
-
-## Install c development environment
+### Scaffold Project
 
 ```bash
-docker exec -it rpi5-dev bash -c "
-apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    gcc-arm-none-eabi \
-    libnewlib-arm-none-eabi \
-    gdb-multiarch \
-    openssh-server \
-    sudo \
-    vim \
-    nano \
-    gdb \
-    git \
-    && mkdir -p /var/run/sshd"
-```
-
-## Add dev user
-
-> Change user and password
-
-```bash
-docker exec -it rpi5-dev bash -c "
-useradd -m -s /bin/bash [user] && \
-echo '[user]:[password]' | chpasswd && \
-usermod -aG sudo [user]"
-```
-
-## Enable SSH
-
-```bash
-docker exec -it rpi5-dev bash -c "
-sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
-sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-service ssh restart"
-```
-
-## Setup zsh  (zeeshell) - optional
-
-> It requires you logout and login again
-> When you login next time you are asked about options, choose 2.
-
-```bash
-sudo apt update
-sudo apt install zsh -y
-chsh -s $(which zsh)
-```
-
-> Optional add [Oh My Zsh](https://ohmyz.sh) (follow instructions)
-> You need to logout first to start zsh.
-```bash
-#optional Oh My Zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-```
-
-## Login
-
-```bash
-ssh [user]@localhost -p 2222
-
-# if WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!
-# vi ~/.ssh/known_hosts
-# remove key for localhost:2222
-
 cd ~
-mkdir ws
-
-# ctrl-d to end session
+cd ws
+mkdir -p zero-project
+cd zero-project
+mkdir tests
+touch ./include/Calculator.h
+touch ./src/Calculator.cpp
+touch ./tests/CMakeLists.txt
+touch ./tests/test_calculator.cpp
 ```
 
-## Generate locale
-
-> This starts a GUI where you use space to choose sv_SE as locale.
+### CMakeLists.txt (Project Structure)
 
 ```bash
-sudo locale-gen sv_SE.UTF-8
-sudo dpkg-reconfigure locales
+cat > CMakeLists.txt << EOF
+cmake_minimum_required(VERSION 3.16)
+project(zero-project LANGUAGES CXX)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \${CMAKE_SOURCE_DIR}/bin)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(CTest)
+
+add_subdirectory(src)
+add_subdirectory(tests)
+EOF
 ```
 
-## Configure vim
+### ./src/CMakeLists.txt (Library and Executable)
 
 ```bash
-echo 'set nocompatible' >> ~/.vimrc
+cat > ./src/CMakeLists.txt << EOF
+add_library(calculator Calculator.cpp)
+target_include_directories(calculator PUBLIC \${CMAKE_SOURCE_DIR}/include)
+
+add_executable(hello main.cpp)
+target_link_libraries(hello calculator)
+EOF
+```
+
+### src/main.cpp
+
+```bash
+cat > ./src/main.cpp << EOF
+#include <iostream>
+#include "Calculator.h"
+using namespace std;
+
+int main() {
+    Calculator calc;
+    cout << "2 + 3 = " << calc.add(2, 3) << endl;
+    return 0;
+}
+EOF
+```
+
+### include/Calculator.h
+
+```bash
+cat > ./include/Calculator.h << EOF
+#pragma once
+
+class Calculator {
+public:
+    int add(int a, int b);
+    int subtract(int a, int b);
+};
+EOF
+```
+
+### src/Calculator.cpp
+
+```bash
+cat > ./src/Calculator.cpp << EOF
+#include "Calculator.h"
+
+int Calculator::add(int a, int b) {
+    return a + b;
+}
+
+int Calculator::subtract(int a, int b) {
+    return a - b;
+}
+EOF
+```
+
+### tests/CMakeLists.txt (GoogleTest and Unit Tests)
+
+```bash
+cat > ./tests/CMakeLists.txt << EOF
+include(FetchContent)
+
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+)
+
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(test_calculator test_calculator.cpp)
+target_link_libraries(test_calculator gtest_main calculator)
+
+add_test(NAME CalculatorTests COMMAND test_calculator)
+EOF
+```
+
+### tests/test_calculator.cpp
+
+```bash
+cat > ./tests/test_calculator.cpp << EOF
+#include <gtest/gtest.h>
+#include "Calculator.h"
+
+TEST(CalculatorTest, Addition) {
+    Calculator calc;
+    EXPECT_EQ(calc.add(2, 3), 5);
+}
+
+TEST(CalculatorTest, Subtraction) {
+    Calculator calc;
+    EXPECT_EQ(calc.subtract(5, 3), 2);
+}
+EOF
+```
+
+### Build the project
+
+```bash
+cmake -B build
+make -C build
+./bin/hello
+```
+
+### Run tests
+
+```bash
+cmake -B build
+make -C build test
+```
+
+### Reset to commit or delete zero-project
+
+#### Delete Project
+
+```bash
+cd ~
+cd ws
+rm -rf zero-project
+```
+
+#### Reset to Commit
+
+```bash
+cd ~
+cd ws
+cd zero-project
+git reset --hard
+git clean -df
 ```
