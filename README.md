@@ -14,9 +14,8 @@
 ```bash
 cd ~
 cd ws
-mkdir -p zero-project
 cd zero-project
-mkdir tests
+mkdir -p tests
 touch ./include/Calculator.h
 touch ./src/Calculator.cpp
 touch ./tests/CMakeLists.txt
